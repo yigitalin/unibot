@@ -86,7 +86,7 @@ http://127.0.0.1:8000/docs
 
 **Hazir Olarak Kullanilabilir PDF'ler**
 
-Asagidaki PDF'ler repo icinde ek kaynak dokumanlar olarak sunulmustur. Isteyen GitHub uzerinden indirip kendi dokuman havuzuna ekleyerek kullanabilir:
+Aşağıdaki PDF'ler repo içinde ek kaynak dokümanlar olarak sunulmuştur. İsteyen GitHub üzerinden indirip kendi dokuman havuzuna ekleyerek kullanabilir:
 
 - [okan_burs_rehberi.pdf](pdfs/okan_burs_rehberi.pdf)
 - [okan_cap_yandal_rehberi.pdf](pdfs/okan_cap_yandal_rehberi.pdf)

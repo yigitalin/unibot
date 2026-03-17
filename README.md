@@ -1,90 +1,128 @@
-# UniBot
+# UniBot - Yerel LLM Destekli Doküman Soru-Cevap Servisi
 
-## Projenin Kisa Aciklamasi
+## Projenin Kısa Açıklaması
+UniBot, kullanıcıların kendi yükledikleri PDF dokümanları üzerinden soru sorabilmesini sağlayan, tamamen yerelde (local) çalışan bir RAG (Retrieval-Augmented Generation) servisidir. Bu proje "1. Hafta - Orta Seviye Case Study" isterlerine uygun olarak geliştirilmiştir.
 
-UniBot, Istanbul Okan Universitesi ogrencileri icin gelistirilmis yerel LLM destekli bir dokuman soru-cevap uygulamasidir. Kullanici PDF belgelerini yukler, sistem bu belgeleri yerel olarak indeksler ve sorulari sadece yuklenen icerige gore yanitlar. Belgelerde cevap bulunamazsa kullaniciyi resmi okul web sitesine yonlendirir.
+Sistem, yüklenen belgeleri parçalara ayırarak bir vektör veritabanında indeksler. Kullanıcı bir soru sorduğunda, sadece bu belgelerdeki ilgili bağlamı bularak yerel bir Büyük Dil Modeli (LLM) aracılığıyla anlamlı bir Türkçe cevap üretir. Sistemde cevap bulunamazsa, halüsinasyon (uydurma) yapmak yerine kullanıcıyı resmi kaynaklara (örneğin üniversitenin resmi web sitesine) yönlendirecek güvenli bir fallback (geri çekilme) mekanizması kurgulanmıştır.
 
-## Kurulum ve Calistirma
+---
 
-### Gereksinimler
+# Kullanılan Ana Teknolojiler ve Tercih Nedenleri
 
-- Python 3.13+
-- Ollama
-- `gemma3:4b`
-- `nomic-embed-text`
+Proje, verilerin hiçbir şekilde bulut ortamına veya üçüncü parti sunuculara gönderilmemesi prensibiyle, tamamen lokalde çalışacak şekilde tasarlanmıştır.
 
-### 1. Sanal ortam olusturma
+### LLM ve Model Yönetimi (Ollama & `gemma3:4b`)
+Yerel LLM sunucusu olarak **Ollama** tercih edilmiştir. Ollama'nın kurulumu, API sunması ve donanım kaynaklarını optimize etmesi oldukça pratiktir. Model olarak Google'ın açık kaynaklı **`gemma3:4b`** modeli seçilmiştir; çünkü kişisel bilgisayarlarda (RAM/VRAM kısıtlamaları altında) hızlı çalışırken aynı zamanda Türkçe bağlamı anlama konusunda oldukça başarılı bir denge sunar.
 
-```powershell
-python -m venv venv
-```
+### Embedding Modeli (`nomic-embed-text`)
+Metinleri vektörlere dönüştürmek için LLM'den bağımsız, sadece bu iş için optimize edilmiş hafif ve performanslı **`nomic-embed-text`** kullanılmıştır.
 
-### 2. Sanal ortami aktif etme
+### Vektör Veritabanı (FAISS)
+Doküman parçaları (chunk) arasında hızlı anlamsal (semantic) arama yapabilmek için Facebook'un geliştirdiği **FAISS (Facebook AI Similarity Search)** kullanılmıştır. Bellek (RAM) üzerinde son derece verimli ve düşük gecikmeli çalıştığı için bu çaptaki bir proje için ideal bir seçimdir.
 
-```powershell
-.\venv\Scripts\Activate.ps1
-```
+### Orkestrasyon (LangChain)
+PDF yükleme (`PyPDFLoader`), metin parçalama (`RecursiveCharacterTextSplitter`) ve RAG zincirini kurma işlemleri için standartlaşmış bir yapı sunan **LangChain** kullanılmıştır.
 
-### 3. Bagimliliklari kurma
+### Backend API (FastAPI & Pydantic)
+Servis katmanı **FastAPI** ile geliştirilmiştir. Hızlı olması, asenkron yapıyı desteklemesi ve **Pydantic** ile gelen verileri otomatik doğrulaması sebebiyle tercih edilmiştir. İsterlere uygun olarak `/health`, `/chat` ve `/knowledge-bases` endpoint'leri sunar.
 
-```powershell
-python -m pip install -r requirements.txt
-```
+### Kullanıcı Arayüzü (Streamlit)
+Backend API'nin yeteneklerini görselleştirmek ve uçtan uca akışı sergilemek için hızlı prototipleme imkanı sunan **Streamlit** ile minimal bir arayüz geliştirilmiştir.
 
-### 4. Ollama modellerini indirme
+---
 
-```powershell
+# Kurulum ve Çalıştırma Adımları
+
+Projeyi kendi bilgisayarınızda çalıştırmak için aşağıdaki adımları sırasıyla izleyebilirsiniz.
+
+## 1. Ön Koşullar
+
+- Python 3.10+
+- Ollama (Yerel model çalıştırıcısı)
+
+---
+
+## 2. Ollama Modellerini İndirme
+
+Sistemin çalışması için öncelikle Ollama'nın arka planda çalışıyor olması ve ilgili modellerin indirilmiş olması gerekir.
+
+```bash
 ollama pull gemma3:4b
 ollama pull nomic-embed-text
 ```
 
-### 5. Ollama'nin calistigini kontrol etme
+---
+
+# 3. Proje Kurulumu
+
+Proje dizininde bir sanal ortam (virtual environment) oluşturun ve aktif edin.
+
+### Windows
 
 ```powershell
-ollama list
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 ```
 
-### 6. Backend'i baslatma
+### Linux / Mac
 
-```powershell
-.\venv\Scripts\python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
+```bash
+python3 -m venv venv
+source venv/bin/activate
 ```
 
-### 7. Arayuzu baslatma
+Bağımlılıkları yükleyin:
 
-Yeni bir terminalde:
-
-```powershell
-.\venv\Scripts\python.exe -m streamlit run ui.py --server.headless true --server.address 127.0.0.1 --server.port 8501
+```bash
+pip install -r requirements.txt
 ```
 
-### 8. Uygulamayi acma
+---
 
-```text
+# 4. Servisleri Başlatma
+
+Proje iki ayrı servisten oluşmaktadır. İki ayrı terminal açarak (ikisinde de sanal ortamın aktif olduğundan emin olun) aşağıdaki komutları çalıştırın.
+
+## Terminal 1 – FastAPI Backend Servisi
+
+```bash
+python -m uvicorn app:app --host 127.0.0.1 --port 8000
+```
+
+API şu adreste çalışacaktır:
+
+```
+http://127.0.0.1:8000
+```
+
+Servisin çalıştığını kontrol etmek için:
+
+```
+http://127.0.0.1:8000/health
+```
+
+---
+
+## Terminal 2 – Streamlit Arayüzü
+
+```bash
+python -m streamlit run ui.py --server.headless true --server.address 127.0.0.1 --server.port 8501
+```
+
+---
+
+# 5. Kullanım
+
+Tarayıcınızdan aşağıdaki adrese giderek arayüze erişebilirsiniz:
+
+```
 http://127.0.0.1:8501
 ```
 
-## Kullanilan Ana Teknolojiler ve Tercih Nedenleri
+Kullanım adımları:
 
-Sistem tasarlanirken performans, veri gizliligi ve gorevlerin ayriligi prensipleri esas alinmistir. Bu nedenle asagidaki teknolojiler tercih edilmistir:
+1. Yan panelden **PDF yükleyin**
+2. Dokümanların **indekslenmesini bekleyin**
+3. Ana ekrandan **belgelerle ilgili sorular sorun**
 
-- Ollama ve `gemma3:4b` (`LLM`)
-  Bulut tabanli modeller yerine yerelde calisan bir mimari tercih edildi. Boylece universiteye ait belgeler sistem disina cikmadan islenebiliyor. Ollama hafif ve pratik bir model calistirma katmani sunarken, `gemma3:4b` yeterli kalite ve yerel calisma dengesi sagladigi icin secildi.
-
-- LangChain
-  RAG akisini moduler hale getirmek icin kullanildi. Dokuman parcalama, baglam toplama ve LLM zincirleme islemlerini daha duzenli ve genisletilebilir bir yapida kurmaya yardimci oldu.
-
-- FAISS (`Vektor Veritabani`)
-  Dokumanlar icinde hizli benzerlik aramasi yapmak icin tercih edildi. Bellek uzerinde verimli calistigi ve semantik aramada dusuk gecikme sundugu icin bu proje icin uygun bir secim oldu.
-
-- `nomic-embed-text`
-  Metinleri vektore cevirmek icin sohbet modelinden ayri, bu is icin optimize edilmis bir embedding modeli kullanildi. Bu sayede indeksleme daha hizli ve daha tutarli hale geldi.
-
-- FastAPI ve Pydantic
-  RAG motorunu REST API olarak sunmak icin kullanildi. FastAPI hafif ve hizli bir servis katmani saglarken, Pydantic gelen verileri dogrulayarak hatali isteklerin kontrollu sekilde yakalanmasina yardimci oldu.
-
-- Streamlit
-  Sistemin uctan uca calistigini gosteren sade bir arayuz sunmak icin secildi. Hizli prototipleme imkani verdigi icin backend odakli bir projede ek frontend maliyetini dusurdu.
-
-- PyPDF
-  Yuklenen PDF dosyalarindan metin cikarmak icin kullanildi. PDF tabanli calisma senaryosu icin yeterli ve pratik bir cozum sundu.
+UniBot, sorularınıza sadece yüklediğiniz dokümanlara dayanarak cevap verecektir.
